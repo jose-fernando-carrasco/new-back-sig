@@ -18,6 +18,7 @@ class CreateRecorridosTable extends Migration
             $table->string('code');
             $table->string('distancia');
             $table->string('velocidad');
+            $table->string('tiempo');
             $table->string('color_linea');
             $table->string('grosor');
             $table->text('descripcion');
