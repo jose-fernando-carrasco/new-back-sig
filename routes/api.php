@@ -27,8 +27,8 @@ Route::get('linea/{nro}/getRecorridoVuelta',[LineaController::class,'getRecorrid
 Route::get('linea/{nro}/getPuntosIda',[LineaController::class,'getPuntosIda']);
 Route::get('linea/{nro}/getPuntosVuelta',[LineaController::class,'getPuntosVuelta']);   
 Route::get('prueba',function() {
-    $ruta = new Ruta([-17.796453,	-63.155412], [-17.825665, -63.133095]);
+    $ruta = new Ruta([-17.855275,	-63.203323], [-17.720281, -63.141763]);
     $ruta->dijkstra();
-    Log::debug($ruta->getRutaMin());
+    // Log::debug($ruta->getRutas());
     return response()->json($ruta->getRutaMin(), 200);
 });

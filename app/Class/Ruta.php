@@ -3,6 +3,7 @@
 namespace App\Class;
 
 use App\Models\Punto;
+use App\Models\Recorrido;
 use Illuminate\Support\Facades\Log;
 
 
@@ -89,9 +90,116 @@ class Ruta
         }
 
         $this->costoMin = $fila_l[$this->punto_final];
-        $this->ruta_min = $this->calculateRutaMin($this->rutas);
+        $this->ruta_min = array_values($this->calculateRutaMin($this->rutas));
+        $this->ruta_min = $this->desestructurarRuta($this->ruta_min);
+        $this->ruta_min = $this->optimizarRuta($this->ruta_min);
     }
 
+    private function desestructurarRuta(array $ruta)
+    {
+        $recorrido_id = 0;
+        $new_ruta = [];
+        $tramo = [];
+        foreach ($ruta as $punto) {
+            $coord = $punto['coordenadas'];
+            $recorrido = $this->getRecorrido($coord);
+            if ($recorrido_id != $recorrido) {
+                if ($recorrido_id != 0) {
+                    $new_ruta[] = $tramo;
+                }
+                $recorrido_id = $recorrido;
+                $tramo = [];
+                $tramo['recorrido_id'] = $recorrido_id;
+                $tramo['puntos'] = [];
+                $tramo['puntos'][] = $coord;
+            } else {
+                $tramo['puntos'][] = $coord;
+            }
+        }
+
+        return $new_ruta;
+    }
+
+    private function optimizarRuta($ruta)
+    {
+       return $this->unirDosRecorridos($ruta);
+    }
+
+    private function unirDosRecorridos($ruta)
+    {
+        $recorridos = [];
+        foreach ($ruta as $tramo) {
+            $recorridos[] = $tramo['recorrido_id'];
+        }
+
+        while (count($recorridos) != count(array_unique($recorridos))) {
+            $index_inicial = 0;
+            $index_final = 0;
+            $recorrido_r = 0;
+            $length = count($recorridos);
+            for ($key = 0; $key < $length; $key++) {
+                for ($key_f = $length - 1; $key_f > $key; $key_f--) {
+                    if ($recorridos[$key] == $recorridos[$key_f]) {
+                        $index_inicial = $key;
+                        $index_final = $key_f;
+                        $recorrido_r = $recorridos[$key];
+                        break 2;
+                    }
+                }
+            }
+            $new_puntos = $this->getPuntosRecorridoAB(
+                $ruta[$index_inicial]['puntos'][0],
+                end($ruta[$index_final]['puntos']),
+                $recorrido_r
+            );
+            Log::debug( $ruta[$index_inicial]['puntos'][0]);
+            Log::debug(end($ruta[$index_final]['puntos']));
+            Log::debug($recorrido_r);
+            Log::debug($new_puntos);
+            $ruta[$index_inicial]['puntos'] = $new_puntos;
+            for ($key = $index_inicial + 1; $key <= $index_final; $key++) {
+                unset($ruta[$key]);
+            }
+            $ruta = array_values($ruta);
+
+            $recorridos = [];
+            foreach ($ruta as $tramo) {
+                $recorridos[] = $tramo['recorrido_id'];
+            }
+        }
+
+        return $ruta;
+    }
+
+    private function getPuntosRecorridoAB($coord_i, $coord_f, $recorrido){
+        $orden_1 = Punto::where('latitud','=', $coord_i[0])->where('longitud','=', $coord_i[1])
+            ->where('recorrido_id','=', $recorrido)->select('orden')->first()->orden;
+        $orden_2 = Punto::where('latitud', $coord_f[0])->where('longitud', $coord_f[1])
+            ->where('recorrido_id', $recorrido)->select('orden')->first()->orden;
+
+        $orden_i = min($orden_1, $orden_2);
+        $orden_f = max($orden_1, $orden_2);
+
+        $puntos = Punto::where('recorrido_id', $recorrido)
+            ->whereBetween('orden', [$orden_i, $orden_f])
+            ->select('latitud', 'longitud','orden') ->orderBy('orden', 'asc')->get();
+        $new_puntos = [];
+        foreach ($puntos as $punto) {
+            $new_puntos[$punto->orden] = [$punto->latitud, $punto->longitud];
+        }
+        return array_values($new_puntos);
+    }
+
+
+
+    private function getRecorrido($coord)
+    {
+        // $recorridos = Punto::where('latitud', $coord[0])->where('longitud', $coord[1])
+        //             ->select('recorrido_id')->get();
+        // return $recorridos[0];
+        return Punto::where('latitud', $coord[0])->where('longitud', $coord[1])
+            ->select('recorrido_id')->first()->recorrido_id;
+    }
 
     private function calculateRutaMin($rutas)
     {
@@ -129,18 +237,19 @@ class Ruta
         } else {
             foreach ($this->rutas as $key => $rutas) {
                 if (array_search(end($rutas), $rutas) == $p) {
-                    foreach($new_puntos as $punto => $peso){
-                        if( $new_puntos[$punto] == end($new_puntos)){
+                    foreach ($new_puntos as $punto => $peso) {
+                        if ($new_puntos[$punto] == end($new_puntos)) {
                             $this->rutas[$key][$punto] = [
                                 'coordenadas' => $this->puntos[$punto],
-                                'peso' => $peso];
-                        }else{
-                        $new_ruta = array_values($rutas);
-                        $new_ruta[$punto] = [
-                            'coordenadas' => $this->puntos[$punto],
-                            'peso' => $peso
-                        ];
-                        $this->rutas[] = $new_ruta;
+                                'peso' => $peso
+                            ];
+                        } else {
+                            $new_ruta = array_values($rutas);
+                            $new_ruta[$punto] = [
+                                'coordenadas' => $this->puntos[$punto],
+                                'peso' => $peso
+                            ];
+                            $this->rutas[] = $new_ruta;
                         }
                     }
                 }
@@ -224,14 +333,14 @@ class Ruta
         // coord = [lat, lon]
         $delta = 0;
         $pointsNear = array();
-
+        Log::debug('entra a buscar');
         while (count($pointsNear) < 1) {
             $delta += 0.0009; //aprox 100m
             $pointsNear = Punto::whereBetween('latitud', [$coord[0] - $delta, $coord[0] + $delta])
                 ->whereBetween('longitud', [$coord[1] - $delta, $coord[1] + $delta])
                 ->get();
         }
-
+        Log::debug('sale');
 
         if (count($pointsNear) == 1) return [$pointsNear[0]->latitud, $pointsNear[0]->longitud];
 
