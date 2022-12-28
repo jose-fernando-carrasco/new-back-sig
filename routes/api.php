@@ -25,9 +25,10 @@ Route::get('linea/{nro}/getLinea',[LineaController::class,'getLinea']);
 Route::get('linea/{nro}/getRecorridoIda',[LineaController::class,'getRecorridoIda']);
 Route::get('linea/{nro}/getRecorridoVuelta',[LineaController::class,'getRecorridoVuelta']);
 Route::get('linea/{nro}/getPuntosIda',[LineaController::class,'getPuntosIda']);
-Route::get('linea/{nro}/getPuntosVuelta',[LineaController::class,'getPuntosVuelta']);   
-Route::get('prueba',function() {
-    $ruta = new Ruta([-17.822212,	-63.199924], [-17.80311, -63.091194]);
+Route::get('linea/{nro}/getPuntosVuelta',[LineaController::class,'getPuntosVuelta']);  
+Route::get('partida/{latPartida}/{longPartida}/llegada/{latLlegada}/{longLlegada}',function($latPartida, $longPartida, $latLlegada, $longLlegada) {
+    // $ruta = new Ruta([-17.822212,	-63.199924], [-17.80311, -63.091194]);
+    $ruta = new Ruta([$latPartida,$longPartida], [$latLlegada,$longLlegada]);
     $ruta->dijkstra();
     // Log::debug($ruta->getRutas());
     return response()->json($ruta->getRutaMin(), 200);
