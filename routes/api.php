@@ -31,5 +31,6 @@ Route::get('partida/{latPartida}/{longPartida}/llegada/{latLlegada}/{longLlegada
     $ruta = new Ruta([$latPartida,$longPartida], [$latLlegada,$longLlegada]);
     $ruta->dijkstra();
     // Log::debug($ruta->getRutas());
+    ini_set('memory_limit', '8192M');
     return response()->json($ruta->getRutaMin(), 200);
 });
